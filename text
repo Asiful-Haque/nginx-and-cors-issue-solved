@@ -1,0 +1,117 @@
+--.env file--
+
+# NEXT_PUBLIC_BASE_URL=http://159.223.130.218/api
+# NEXT_PUBLIC_BASE_URL_FRONT=http://159.223.130.218
+
+NEXT_PUBLIC_BASE_URL=https://www.english-welsh.net/api
+NEXT_PUBLIC_BASE_URL_FRONT=https://www.english-welsh.net
+----------------production e always https use korte hbe ssl niye then www must...www er ta handle kore nite hobe nginx e jeye jate english-welsh jay www.english-welsh e ---------------------
+
+# NEXT_PUBLIC_BASE_URL=http://localhost:5000/api
+# NEXT_PUBLIC_BASE_URL_FRONT=http://localhost:3000
+-------------- localhost e kokhno https thake nah,http thake --------------------------
+
+
+
+
+nginx/sites-enabled/default
+
+server {
+    server_name english-welsh.net; # non-www
+    if ($request_method != 'OPTIONS') {
+        return 301 https://www.english-welsh.net$request_uri;
+    }
+ listen [::]:443 ssl ipv6only=on; #non-www
+    listen 443 ssl; # kept only one listen directive
+    ssl_certificate /etc/letsencrypt/live/english-welsh.net/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/english-welsh.net/privkey.pem; # managed by Certbot
+    include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+}
+
+server {
+    server_name www.english-welsh.net;
+
+    location / {
+        proxy_pass http://localhost:3000;
+        -----------------------cz amar eta direct kortese amar localhost er code ta k--------------------------
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_connect_timeout 90s;
+        proxy_send_timeout 90s;
+        proxy_read_timeout 90s;
+    }
+
+    location /api/ {
+        proxy_pass http://localhost:5000;
+        -----------------------cz amar eta direct kortese amar localhost er code ta k--------------------------
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+
+        # CORS headers
+        add_header Access-Control-Allow-Origin "https://www.english-welsh.net";
+        add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS";
+        add_header Access-Control-Allow-Headers "Content-Type, Authorization";
+        add_header Access-Control-Allow-Credentials "true";
+
+        # Handle preflight
+        --------------------------------------------------------preflight req handle korte hbe -----------------------------------------------------------
+        if ($request_method = OPTIONS){
+            add_header Access-Control-Allow-Origin "https://www.english-welsh.net" always;
+            add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS" always;
+            add_header Access-Control-Allow-Headers "Content-Type, Authorization" always;
+            add_header Access-Control-Allow-Credentials "true" always;
+            add_header Content-Length 0;
+            add_header Content-Type text/plain;
+            return 204;
+        }
+    }
+
+    listen [::]:443 ssl;
+    listen 443 ssl; # kept only one listen directive
+    ssl_certificate /etc/letsencrypt/live/english-welsh.net/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/english-welsh.net/privkey.pem; # managed by Certbot
+    include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+}
+
+server {
+    if ($host = english-welsh.net) {
+        return 301 https://$host$request_uri;
+    }
+
+    listen 80; # HTTP for non-SSL
+    listen [::]:80; # HTTP for IPv6
+    server_name english-welsh.net;
+    return 404; # managed by Certbot
+}
+
+
+
+
+
+
+in backend main.ts file 
+ekhaneo cors enable kore dite hbe...overlap hok
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+  app.enableCors({
+  origin: 'https://www.english-welsh.net',  // Frontend URL in production
+  credentials: true,  // Allow credentials (cookies, etc.)
+  methods: 'GET, POST, PUT, DELETE, OPTIONS',  // Allow methods for preflight requests
+  allowedHeaders: 'Content-Type, Authorization',  // Allow headers
+  });
+  await app.listen(5000, '0.0.0.0');
+}
+bootstrap();
+
+
